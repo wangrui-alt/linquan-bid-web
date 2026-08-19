@@ -1,10 +1,8 @@
 name: Update Bid Data
 
 on:
-  # 每天6次自动运行（北京时间 8:00/10:00/12:00/14:00/16:00/18:00）
   schedule:
-    - cron: '0 0,2,4,6,8,10 * * *'  # UTC 时间，对应北京时间 8:00/10:00/12:00/14:00/16:00/18:00
-  # 支持手动触发
+    - cron: '0 0,4,6,9 * * *'
   workflow_dispatch:
 
 permissions:
@@ -24,10 +22,8 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Run crawler
+      - name: Run email crawler (bid-crawler-linquan)
         env:
-          NETLIFY_TOKEN: ${{ secrets.NETLIFY_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
@@ -37,7 +33,17 @@ jobs:
           REGION_KEYWORDS: ${{ secrets.REGION_KEYWORDS }}
         run: |
           cd scripts
-          python cloud_main.py
+          python cloud_email.py
+
+      - name: Run web deployer (bid-web-linquan)
+        env:
+          NETLIFY_TOKEN: ${{ secrets.NETLIFY_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          REGION_NAME: ${{ secrets.REGION_NAME }}
+          REGION_KEYWORDS: ${{ secrets.REGION_KEYWORDS }}
+        run: |
+          cd scripts
+          python cloud_web.py
 
       - name: Commit history data
         run: |
