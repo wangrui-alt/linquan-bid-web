@@ -9,7 +9,7 @@
   SMTP_PORT        - SMTP 端口（默认 465）
   EMAIL_FROM       - 发件邮箱
   EMAIL_AUTH_CODE  - 邮箱授权码
-  EMAIL_TO         - 收件邮箱
+  EMAIL_TO         - 收件邮箱（多人用逗号分隔，如 a@xx.com,b@xx.com）
   REGION_NAME      - 地区名称（默认 临泉县）
   REGION_KEYWORDS  - 地区关键词，逗号分隔（默认 临泉,236400）
 """
@@ -56,7 +56,11 @@ SMTP_SERVER = get_env("SMTP_SERVER", "smtp.qq.com")
 SMTP_PORT = int(get_env("SMTP_PORT", "465"))
 EMAIL_FROM = get_env("EMAIL_FROM")
 EMAIL_AUTH_CODE = get_env("EMAIL_AUTH_CODE")
-EMAIL_TO = get_env("EMAIL_TO")
+EMAIL_TO_RAW = get_env("EMAIL_TO")
+EMAIL_TO_LIST = [addr.strip() for addr in EMAIL_TO_RAW.split(",") if addr.strip()]
+
+if EMAIL_TO_LIST:
+    logger.info(f"收件人列表: {EMAIL_TO_LIST}")
 
 # ==================== 历史去重（与 cloud_web.py 共享同一文件）====================
 HISTORY_FILE = os.path.join(SCRIPT_DIR, "data", "bid_history.json")
@@ -103,13 +107,13 @@ def _item_dedup_id(item):
 
 # ==================== 邮件发送 ====================
 def send_email(html_content, subject):
-    if not EMAIL_FROM or not EMAIL_AUTH_CODE or not EMAIL_TO:
+    if not EMAIL_FROM or not EMAIL_AUTH_CODE or not EMAIL_TO_LIST:
         logger.warning("邮箱配置不完整，跳过邮件发送")
         return False
 
     msg = MIMEMultipart("alternative")
     msg["From"] = EMAIL_FROM
-    msg["To"] = EMAIL_TO
+    msg["To"] = ", ".join(EMAIL_TO_LIST)
     msg["Subject"] = subject
     msg["Date"] = formatdate(localtime=True)
     html_part = MIMEText(html_content, "html", "utf-8")
@@ -119,8 +123,8 @@ def send_email(html_content, subject):
         context = ssl_module.create_default_context()
         with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, context=context) as server:
             server.login(EMAIL_FROM, EMAIL_AUTH_CODE)
-            server.sendmail(EMAIL_FROM, [EMAIL_TO], msg.as_string())
-        logger.info(f"邮件发送成功: {subject}")
+            server.sendmail(EMAIL_FROM, EMAIL_TO_LIST, msg.as_string())
+        logger.info(f"邮件发送成功 ({len(EMAIL_TO_LIST)}人): {subject}")
         return True
     except Exception as e:
         logger.error(f"邮件发送失败: {e}")
